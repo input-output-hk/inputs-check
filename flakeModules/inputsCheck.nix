@@ -5,7 +5,8 @@ flake @ {lib, ...}: let
 
   p = v: traceSeq v v;
 
-  # Attrset defaults don't work from impure cli passing to functions
+  # Attrset defaults don't work from impure cli passing to functions, so
+  # assemble an attrset of usable args with this function.
   parseArgs = args:
     p (foldl' recursiveUpdate {} [
       # Search defns
@@ -40,14 +41,28 @@ flake @ {lib, ...}: let
     then trace attrPath eval
     else eval;
 
+  # Remove any `denyList` attrs from the supplied attrset, which is by default
+  # self.inputs.
   fAttrs = args: filterAttrs (n: _: !(elem n args.denyList));
+
+  # Remove any `denyList` elements from the supplied list, which is typically a
+  # list of attrNames found from a provided recursion path point.
   fList = args: filter (n: !(elem n args.denyList));
 
+  # Mark a pathAttr as recognized for inclusion in results.
   found = pathAttr: [{FOUND = {inherit (pathAttr) attrPath out depth;};}];
+
+  # Check if the input path has the `recursePathStr` attr and is within the
+  # depth maximum.
   attrCheck = pathAttr: args: hasAttr args.recursePathStr pathAttr.attr && pathAttr.depth < args.maxRecurseDepth;
 
+  # Filter any non-unique pathAttr elements from a list by criteria of
+  # attrPath, keeping only the last element if duplicates are present.
   uniqueAttrPaths = l: attrValues (listToAttrs (map (e: nameValuePair e.attrPath e) l));
 
+  # Generates an initial list of inputs to begin processing marking them as
+  # depth of 1.  The list is filtered for any `denyList` and starts processing
+  # from the flakes self.`startPathStr` attr path location.
   genPathAttr = self: args:
     mapAttrsToList (name: _: {
       inherit name;
@@ -96,6 +111,7 @@ flake @ {lib, ...}: let
                 then recursePathSearch pathAttr args
                 else null
             )
+            # A starting list of inputs to process -- see comment above
             (genPathAttr self args)
           )
         )
