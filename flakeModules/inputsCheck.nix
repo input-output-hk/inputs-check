@@ -1,7 +1,7 @@
 # flakeModule: inputs.inputs-check.flakeModule
 flake @ {lib, ...}: let
   inherit (builtins) attrNames attrValues concatLists elem hasAttr match toJSON trace typeOf unsafeDiscardStringContext;
-  inherit (lib) filter filterAttrs flatten foldl' mapAttrsToList optionals recursiveUpdate traceSeq;
+  inherit (lib) filter filterAttrs flatten foldl' listToAttrs mapAttrsToList nameValuePair optionals recursiveUpdate traceSeq;
 
   p = v: traceSeq v v;
 
@@ -46,6 +46,8 @@ flake @ {lib, ...}: let
   found = pathAttr: [{FOUND = {inherit (pathAttr) attrPath out depth;};}];
   attrCheck = pathAttr: args: hasAttr args.recursePathStr pathAttr.attr && pathAttr.depth < args.maxRecurseDepth;
 
+  uniqueAttrPaths = l: attrValues (listToAttrs (map (e: nameValuePair e.attrPath e) l));
+
   genPathAttr = self: args:
     mapAttrsToList (name: _: {
       inherit name;
@@ -80,7 +82,7 @@ flake @ {lib, ...}: let
     );
 
   searchAttrPath = self: args:
-    concatLists (
+    uniqueAttrPaths (concatLists (
       map attrValues (
         filter (e: typeOf e == "set" && e ? FOUND) (
           flatten (
@@ -98,7 +100,7 @@ flake @ {lib, ...}: let
           )
         )
       )
-    );
+    ));
 in {
   flake.inputsCheck = self: args: toJSON (searchAttrPath self (parseArgs args));
 
