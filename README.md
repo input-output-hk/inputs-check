@@ -23,7 +23,7 @@ Inside the mkFlake add:
     ];
 
 
-Assuming all other nix flake inputs are already locked, the just run:
+Assuming all other nix flake inputs are already locked, then just run:
 
     nix flake update inputs-check
 
@@ -42,7 +42,7 @@ Add a flake package output for the desired arch:
     packages.x86_64-linux.input-checks = input-check.packages.x86_64-linux.input-checks;
 
 
-Assuming all other nix flake inputs are already locked, the just run:
+Assuming all other nix flake inputs are already locked, then just run:
 
     nix flake update inputs-check
 
@@ -72,7 +72,7 @@ Use jq to analyze different things about the flake inputs:
       15
 
 
-* Find the number of top nested inputs 10 levels deep
+* Find the number of nested inputs 10 levels deep
 
       nix run .#inputs-check -- '{maxRecurseDepth = 10;}' | jq length
       169
