@@ -46,15 +46,15 @@ flake @ {lib, ...}: let
   found = pathAttr: [{FOUND = {inherit (pathAttr) attrPath out depth;};}];
   attrCheck = pathAttr: args: hasAttr args.recursePathStr pathAttr.attr && pathAttr.depth < args.maxRecurseDepth;
 
-  genPathAttr = args:
+  genPathAttr = self: args:
     mapAttrsToList (name: _: {
       inherit name;
-      out = unsafeDiscardStringContext flake.${args.startPathStr}.${name}.outPath;
-      attr = flake.${args.startPathStr}.${name};
+      out = unsafeDiscardStringContext self.${args.startPathStr}.${name}.outPath;
+      attr = self.${args.startPathStr}.${name};
       attrPath = "${args.startPathStr}.${name}";
       depth = 1;
     })
-    (fAttrs args flake.${args.startPathStr});
+  (fAttrs args self.${args.startPathStr});
 
   recursePathSearch = pathAttr: args: let
     recurseInto = pathAttr:
@@ -79,7 +79,7 @@ flake @ {lib, ...}: let
       else "recurseEndpointReached"
     );
 
-  searchAttrPath = args:
+  searchAttrPath = self: args:
     concatLists (
       map attrValues (
         filter (e: typeOf e == "set" && e ? FOUND) (
@@ -94,13 +94,13 @@ flake @ {lib, ...}: let
                 then recursePathSearch pathAttr args
                 else null
             )
-            (genPathAttr args)
+            (genPathAttr self args)
           )
         )
       )
     );
 in {
-  flake.inputsCheck = args: toJSON (searchAttrPath (parseArgs args));
+  flake.inputsCheck = self: args: toJSON (searchAttrPath self (parseArgs args));
 
   perSystem = {pkgs, ...}: {
     packages.inputs-check =
@@ -113,7 +113,7 @@ in {
           nix eval \
             --raw \
             --impure \
-            --expr "let f = builtins.getFlake (toString ./.); in f.inputsCheck $ARGS" \
+            --expr "let f = builtins.getFlake (toString ./.); in f.inputsCheck f $ARGS" \
             | jq -r '.[] | (.attrPath) + " " + (.depth | tostring) + " " + (.out)' \
             | xargs -I{} bash -c 'echo "{} $(nix path-info -S $(echo {} | awk "{print \$3}") | awk "{print \$2}")"' \
             | jq -R '[splits(" +")] | {attrPath: .[0], depth: (.[1] | tonumber), out: .[2], closureSize: (.[3] | tonumber)}' \
