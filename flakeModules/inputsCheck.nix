@@ -1,5 +1,6 @@
 # flakeModule: inputs.inputs-check.flakeModule
 flake @ {lib, ...}: let
+  inherit (builtins) attrNames attrValues concatLists elem hasAttr match toJSON trace typeOf unsafeDiscardStringContext;
   inherit (lib) filter filterAttrs flatten foldl' mapAttrsToList optionals recursiveUpdate traceSeq;
 
   p = v: traceSeq v v;
@@ -29,26 +30,26 @@ flake @ {lib, ...}: let
 
   parseArg = args: name: default: {
     ${name} =
-      if builtins.hasAttr name args
+      if hasAttr name args
       then args.${name}
       else default;
   };
 
   optionalTrace = args: attrPath: eval:
     if args.pathTrace
-    then builtins.trace attrPath eval
+    then trace attrPath eval
     else eval;
 
-  fAttrs = args: filterAttrs (n: _: !(builtins.elem n args.denyList));
-  fList = args: builtins.filter (n: !(builtins.elem n args.denyList));
+  fAttrs = args: filterAttrs (n: _: !(elem n args.denyList));
+  fList = args: filter (n: !(elem n args.denyList));
 
   found = pathAttr: [{FOUND = {inherit (pathAttr) attrPath out depth;};}];
-  attrCheck = pathAttr: args: builtins.hasAttr args.recursePathStr pathAttr.attr && pathAttr.depth < args.maxRecurseDepth;
+  attrCheck = pathAttr: args: hasAttr args.recursePathStr pathAttr.attr && pathAttr.depth < args.maxRecurseDepth;
 
   genPathAttr = args:
     mapAttrsToList (name: _: {
       inherit name;
-      out = builtins.unsafeDiscardStringContext flake.${args.startPathStr}.${name}.outPath;
+      out = unsafeDiscardStringContext flake.${args.startPathStr}.${name}.outPath;
       attr = flake.${args.startPathStr}.${name};
       attrPath = "${args.startPathStr}.${name}";
       depth = 1;
@@ -60,18 +61,18 @@ flake @ {lib, ...}: let
       map (name:
         recursePathSearch {
           inherit name;
-          out = builtins.unsafeDiscardStringContext pathAttr.attr.${args.recursePathStr}.${name}.outPath;
+          out = unsafeDiscardStringContext pathAttr.attr.${args.recursePathStr}.${name}.outPath;
           attr = pathAttr.attr.${args.recursePathStr}.${name};
           attrPath = "${pathAttr.attrPath}.${args.recursePathStr}.${name}";
           depth = pathAttr.depth + 1;
         }
         args)
-      (fList args (builtins.attrNames pathAttr.attr.${args.recursePathStr}));
+      (fList args (attrNames pathAttr.attr.${args.recursePathStr}));
   in
     optionalTrace args pathAttr.attrPath (
       if args.dumpAllPaths
       then found pathAttr ++ optionals (attrCheck pathAttr args) (recurseInto pathAttr)
-      else if builtins.match args.matchExtRegex pathAttr.name != null
+      else if match args.matchExtRegex pathAttr.name != null
       then found pathAttr
       else if attrCheck pathAttr args
       then recurseInto pathAttr
@@ -79,15 +80,15 @@ flake @ {lib, ...}: let
     );
 
   searchAttrPath = args:
-    builtins.concatLists (
-      map builtins.attrValues (
-        filter (e: builtins.typeOf e == "set" && e ? FOUND) (
+    concatLists (
+      map attrValues (
+        filter (e: typeOf e == "set" && e ? FOUND) (
           flatten (
             map (
               pathAttr:
                 if args.dumpAllPaths
                 then found pathAttr ++ optionals (attrCheck pathAttr args) (recursePathSearch pathAttr args)
-                else if builtins.match args.matchExtRegex pathAttr.name != null
+                else if match args.matchExtRegex pathAttr.name != null
                 then found pathAttr
                 else if attrCheck pathAttr args
                 then recursePathSearch pathAttr args
@@ -99,7 +100,7 @@ flake @ {lib, ...}: let
       )
     );
 in {
-  flake.inputsCheck = args: builtins.toJSON (searchAttrPath (parseArgs args));
+  flake.inputsCheck = args: toJSON (searchAttrPath (parseArgs args));
 
   perSystem = {pkgs, ...}: {
     packages.inputs-check =
