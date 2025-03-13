@@ -1,5 +1,5 @@
 # flakeModule: inputs.inputs-check.flakeModule
-flake @ {lib, ...}: let
+{lib, ...}: let
   inherit (builtins) attrNames attrValues concatLists elem hasAttr match toJSON trace typeOf unsafeDiscardStringContext;
   inherit (lib) filter filterAttrs flatten foldl' listToAttrs mapAttrsToList nameValuePair optionals recursiveUpdate traceSeq;
 
